@@ -321,6 +321,27 @@ def mm_out(a, b, *, out):
     return c
 
 
+def sqmma_get_configs():
+    return [
+        triton.Config(
+            {"BLOCK_M": 128, "BLOCK_N": 128, "BLOCK_K": 128},
+            num_stages=1,
+            num_warps=4,
+        ),
+        triton.Config(
+            {"BLOCK_M": 128, "BLOCK_N": 128, "BLOCK_K": 64},
+            num_stages=1,
+            num_warps=4,
+        )
+    ]
+
+
+@libentry()
+@libtuner(
+    configs=sqmma_get_configs(),
+    key=["M", "N", "K", "dtype"],
+    strategy=["align32", "align32", "align32", "default"],
+)
 @triton.jit
 def mm_sqmma_kernel(
     a_desc,
