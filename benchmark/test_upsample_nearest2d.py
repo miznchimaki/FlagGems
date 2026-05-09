@@ -12,7 +12,7 @@ class UpsampleBenchmark(base.GenericBenchmark):
 
 
 def _input_fn(shape, dtype, device):
-    batch, channel, height, weight = shape
+    _, _, height, weight = shape
     input = torch.randn(size=shape, device=device, dtype=dtype)
     scale_factors = (2, 2)
     output_size = (
