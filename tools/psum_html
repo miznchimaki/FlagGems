@@ -1,0 +1,166 @@
+#!/usr/bin/env python
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).parent.parent
+DATA = {}
+DEBUG = False
+
+
+def load_data(data_path):
+    try:
+        with data_path.open("r") as f:
+            data = json.load(f)
+        return data, True
+    except Exception as ex:
+        print(f"Failed to load data: {ex}")
+    return {}, False
+
+
+def parse_lines():
+    data = DATA.get("result", {})
+    lines = []
+    for op, item in data.items():
+        fields = []
+        # print(f"{op} ....")
+        accu = item["accuracy"]["status"]
+        accud = "/".join(
+            [
+                str(item["accuracy"]["passed"]),
+                str(item["accuracy"]["failed"]),
+                str(item["accuracy"]["skipped"]),
+            ]
+        )
+        fields.extend([op, accu, accud])
+
+        perf_data = item["performance"]["data"]
+        perf_status = item["performance"]["status"]
+        if perf_status == "NotFound":
+            fields.append("NotFound")
+            fields.extend([""] * 8)
+
+        elif perf_status in ["Failed", "Skipped"]:
+            reason = item["performance"]["reason"]
+            reason = reason.split("\n")[0]
+            fields.append(perf_status)
+            fields.extend([""] * 7)
+            fields.append(f'"{reason}"')
+
+        else:
+            fields.append(perf_status)
+            for dtype in ["fp16", "fb32", "bf16", "cf64", "int16", "int32", "int64"]:
+                dobj = perf_data.get(dtype, {})
+                speedup = dobj.get("speedup", None)
+                if speedup:
+                    fields.append(f"{speedup:6.3f}")
+                else:
+                    fields.append("")
+
+        line = "</rd><td>".join(fields)
+        lines.append("<tr><td>" + line + "</td></tr>")
+
+    return sorted(lines)
+
+
+# TODO: delete this logic?
+def parse_env():
+    timestamp = DATA.get("timestamp", "?")
+    env = DATA.get("env", {})
+    arch = env.get("architecture", "?")
+    os = env.get("os_name") + " " + env.get("os_release")
+    pyver = env.get("python", "?")
+    torch_obj = env.get("torch", {})
+    torch_ver = torch_obj.get("version", "?")
+    flagtree_ver = env.get("flagtree", "?")
+    triton_ver = env.get("triton", {}).get("version", "?")
+    flaggems_ver = env.get("flag_gems", {}).get("version", "?")
+    flaggems_vendor = env.get("flag_gems", {}).get("vendor", "?")
+    flaggems_device = env.get("flag_gems", {}).get("device", "?")
+
+    lines = []
+    lines.append("<H3>Test Environment</H3>")
+    lines.append("<table><thead><tr><th>Env></th><th>Setting</th><tr></thead>")
+    lines.append("<tbody>")
+    lines.append(f"<tr><td>Time</td><td><tt>{timestamp}</tt></td></tr>")
+    lines.append(f"<tr><td>Architecture</td><td><tt>{arch}</tt></td></tr>")
+    lines.append(f"<tr><td>OS</td><td><tt>{os}</tt></td></tr>")
+    lines.append(f"<tr><td>Python</td><td><tt>{pyver}</tt></td></tr>")
+    lines.append(f"<tr><td>Torch</td><td><tt>{torch_ver}</tt></td></tr>")
+    lines.append(f"<tr><td>FlagTree</td><td><tt>{flagtree_ver}</tt></td></tr>")
+    lines.append(f"<tr><td>Triton</td><td><tt>{triton_ver}</tt></td></tr>")
+    lines.append(f"<tr><td>FlagGems</td><td><tt>{flaggems_ver}</tt></td></tr>")
+    lines.append(f"<tr><td>Vendor</td><td><tt>{flaggems_vendor}</tt></td></tr>")
+    lines.append(f"<tr><td>Device</td><td><tt>{flaggems_device}</tt></td></tr>")
+    lines.append("</tbody></table>")
+    lines.append("")
+
+    return lines
+
+
+def parse_data():
+    lines = parse_lines()
+    header_fields = [
+        "ID",
+        "AccRes",
+        "AccStat",
+        "PerfRes",
+        "FP16",
+        "FP32",
+        "BF16",
+        "CF64",
+        "I16",
+        "I32",
+        "I64",
+        "Note",
+    ]
+
+    header = ["<table>", "<thead>", "<tr>"]
+    for field in header_fields:
+        header.append(f"<th>{field}</th>")
+    header.extend(["</tr>", "</thead>", "<tbody>"])
+    lines = header + lines
+    lines.append("</tbody></table")
+
+    return lines
+
+
+def main():
+    global DATA
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("dir", default="result", help="the data directory to process")
+    parser.add_argument(
+        "-o", "--output", default="<stdout>", help="path to the output file."
+    )
+    parser.add_argument(
+        "-d",
+        "--debug",
+        action=argparse.BooleanOptionalAction,
+        help="flag for printing verbose information for debugging",
+    )
+
+    args = parser.parse_args()
+
+    data_path = Path(args.dir) / "summary.json"
+    DATA, res = load_data(data_path)
+    if not res:
+        return 1
+
+    lines = parse_data()
+
+    # never dump debug information to result file
+    if args.output == "<stdout>" or args.debug:
+        for ln in lines:
+            print(ln)
+    else:
+        with open(args.output, "w") as f:
+            f.writelines(lines)
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

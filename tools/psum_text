@@ -28,10 +28,6 @@ def format_record(fields, fmt):
         line = " | ".join(fields)
         return f"| {line} |"
 
-    if fmt == "html":
-        line = "</rd><td>".join(fields)
-        return "<tr><td>" + line + "</td></tr>"
-
     return ""
 
 
@@ -115,22 +111,6 @@ def parse_env(fmt):
         lines.append(f"| Vendor | `{flaggems_vendor}` |")
         lines.append(f"| Device | `{flaggems_device}` |")
         lines.append("")
-    elif fmt == "html":
-        lines.append("<H3>Test Environment</H3>")
-        lines.append("<table><thead><tr><th>Env></th><th>Setting</th><tr></thead>")
-        lines.append("<tbody>")
-        lines.append(f"<tr><td>Time</td><td><tt>{timestamp}</tt></td></tr>")
-        lines.append(f"<tr><td>Architecture</td><td><tt>{arch}</tt></td></tr>")
-        lines.append(f"<tr><td>OS</td><td><tt>{os}</tt></td></tr>")
-        lines.append(f"<tr><td>Python</td><td><tt>{pyver}</tt></td></tr>")
-        lines.append(f"<tr><td>Torch</td><td><tt>{torch_ver}</tt></td></tr>")
-        lines.append(f"<tr><td>FlagTree</td><td><tt>{flagtree_ver}</tt></td></tr>")
-        lines.append(f"<tr><td>Triton</td><td><tt>{triton_ver}</tt></td></tr>")
-        lines.append(f"<tr><td>FlagGems</td><td><tt>{flaggems_ver}</tt></td></tr>")
-        lines.append(f"<tr><td>Vendor</td><td><tt>{flaggems_vendor}</tt></td></tr>")
-        lines.append(f"<tr><td>Device</td><td><tt>{flaggems_device}</tt></td></tr>")
-        lines.append("</tbody></table>")
-        lines.append("")
 
     return lines
 
@@ -179,23 +159,6 @@ def parse_single_accuracy(fmt, op_data):
         f = op_data.get("failed", 0)
         lines.append(f"| {s} | {d:6.2f} sec | {t} | {p} | {k} | {f} |")
         lines.append("")
-
-    elif fmt == "html":
-        lines.append("<H3>Accuracy Result</H3>")
-        lines.append("<H4>Summary</H4>")
-        lines.append("<table><thead><tr>")
-        lines.append("<th>Status</th><th>Duration (s)</th><th>Total</th>")
-        lines.append(
-            "<th>Passed</th><th>Skipped</th><th>Failed</th></tr></thead><tbody>"
-        )
-        lines.append(f"<tr><td>{op_data.get('status', '?')}</td>")
-        lines.append(f"<td>{op_data.get('duration', '?')}</td>")
-        lines.append(f"<td>{op_data.get('total', 0)}</td>")
-        lines.append(f"<td>{op_data.get('passed', 0)}</td>")
-        k = op_data.get("skipped", 0)
-        lines.append(f"<td>{k}</td>")
-        f = op_data.get("failed", 0)
-        lines.append(f"<td>{f}</td></tr></tbody><table>")
 
     # Append failed and skipped cases if any
     details = op_data.get("details", {})
@@ -251,24 +214,6 @@ def parse_single_performance(fmt, op_data):
                 lines.append(f"| | {spd:6.3f} | {base:6.3f} | {gems:6.3f} | `{shp}` |")
         lines.append("")
         return lines
-
-    elif fmt == "html":
-        duration = op_data.get("duration", 0)
-        lines.append("<H3>Performance Result</H3>")
-        lines.append("<H4>Summary</H4>")
-        lines.append("<table><thead><tr>")
-        lines.append("<th>Status</th><th>Duration</th><th>Reason</th>")
-        lines.append(f"<tr><td>{status}</td>")
-        lines.append(f"<td>{duration:6.2f}</td>")
-        if status in ["Skipped", "Failed"]:
-            reason = op_data.get("reason", "Unknown")
-            reason = "<blockquote>" + reason.replace("\n", "<br/>") + "</blockquote>"
-            lines.append("<td>{reason}</td></tr>")
-        elif status == "NotFound":
-            lines.append("<td><i>No test case found.</i></td></tr>")
-        else:
-            lines.append("<td><i>All tests completed.</i></td</tr>")
-        lines.append("</tbody></table>")
 
     if status != "Passed":
         return lines
@@ -332,13 +277,6 @@ def parse_multi(fmt):
         lines.insert(0, header)
         header = "| " + " | ".join(header_fields) + " |"
         lines.insert(0, header)
-    elif fmt == "html":
-        header = ["<table>", "<thead>", "<tr>"]
-        for field in header_fields:
-            header.append(f"<th>{field}</th>")
-        header.extend(["</tr>", "</thead>", "<tbody>"])
-        lines = header + lines
-        lines.append("</tbody></table")
 
     return lines
 
@@ -351,7 +289,7 @@ def main():
     parser.add_argument(
         "-f",
         "--format",
-        choices=["csv", "markdown", "html"],
+        choices=["csv", "markdown"],
         default="csv",
         help="the output format",
     )
